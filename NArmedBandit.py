@@ -43,23 +43,29 @@ def softmax(temperature, armsNum, estimates):
     return armIndex
     
 def learn(tasksNum, armValueMean, armValueSD, armsNum, armRewardSD, playsNum,
-          learner_func, *params):
+          step_size, explorer_func, *params):
     results = []
     for taskIndex in range(0, tasksNum):
         taskResults = []
         armMeanValues = np.random.normal(armValueMean, armValueSD, armsNum)
         estimates = [0.0]*armsNum
-        tries = [[] for i in range(armsNum)]
+        tries = [0]*armsNum
         for palayIndex in range(0, playsNum):
-            armIndex = learner_func(params[0], armsNum, estimates)
+            armIndex = explorer_func(params[0], armsNum, estimates)
             reward = np.random.normal(armMeanValues[armIndex], armRewardSD)
-            tries[armIndex].append(reward)
-            estimates[armIndex] = np.mean(tries[armIndex])
+            tries[armIndex] += 1
+            if step_size == 0:
+                estimates[armIndex] = (estimates[armIndex] + 
+                    1.0 / float(tries[armIndex]) 
+                    * (reward - estimates[armIndex]))
+            else:
+                estimates[armIndex] = (estimates[armIndex] +
+                    step_size * (reward - estimates[armIndex]))
             taskResults.append(reward)
         results.append(taskResults)
         update_progress(float(taskIndex) / float(tasksNum-1) * 100.0)
     return results
     
-plot_results(learn(2000, 0.0, 1.0, 10, 1.0, 1000, 
+plot_results(learn(2000, 0.0, 1.0, 10, 1.0, 1000, 0, 
                    epsilon_greedy, 0.1), 
                    "Learning with Epsilon-greedy")
