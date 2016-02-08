@@ -19,53 +19,63 @@ def plot_results(results, title):
     plt.title(title)
     plt.show()
 
-def epsilon_greedy(epsilon, armsNum, estimates):
-    armIndex = -1
+def epsilon_greedy(epsilon, arms_num, estimates):
+    arm_index = -1
     if np.random.random_sample() < epsilon:
-        armIndex = np.random.randint(0, armsNum)
+        arm_index = np.random.randint(0, arms_num)
     else:
-        armIndex = np.argmax(estimates)
-    return armIndex
+        arm_index = np.argmax(estimates)
+    return arm_index
             
     
-def softmax(temperature, armsNum, estimates):
-    choiceProbs = []
-    for i in range(armsNum):
+def softmax(temperature, arms_num, estimates):
+    choice_probs = []
+    for i in range(arms_num):
         numerator = np.exp(estimates[i]/temperature)
         denominator = 0.0
-        for j in range(armsNum):
+        for j in range(arms_num):
             if j != i:
                 denominator += np.exp(estimates[j]/temperature)
-        choiceProbs.append(numerator / denominator)
-    choiceProbs = np.array(choiceProbs)
-    choiceProbs /= choiceProbs.sum()
-    armIndex = np.random.choice(range(armsNum), p=choiceProbs)
-    return armIndex
+        choice_probs.append(numerator / denominator)
+    choice_probs = np.array(choice_probs)
+    choice_probs /= choice_probs.sum()
+    arm_index = np.random.choice(range(arms_num), p=choice_probs)
+    return arm_index
     
-def learn(tasksNum, armValueMean, armValueSD, armsNum, armRewardSD, playsNum,
-          step_size, explorer_func, *params):
+def learn(tasks_num, arm_value_mean, arm_value_sd, arms_num, arm_reward_sd, 
+          plays_num, step_size, with_random_walks, random_walk_step, 
+          explorer_func, *params):
     results = []
-    for taskIndex in range(0, tasksNum):
-        taskResults = []
-        armMeanValues = np.random.normal(armValueMean, armValueSD, armsNum)
-        estimates = [0.0]*armsNum
-        tries = [0]*armsNum
-        for palayIndex in range(0, playsNum):
-            armIndex = explorer_func(params[0], armsNum, estimates)
-            reward = np.random.normal(armMeanValues[armIndex], armRewardSD)
-            tries[armIndex] += 1
+    for task_index in range(0, tasks_num):
+        task_results = []
+        if with_random_walks:
+            arm_mean_values = [arm_value_mean]*arms_num
+        else:
+            arm_mean_values = np.random.normal(
+                arm_value_mean, arm_value_sd, arms_num)
+        estimates = [0.0]*arms_num
+        tries = [0]*arms_num
+        for palayIndex in range(0, plays_num):
+            arm_index = explorer_func(params[0], arms_num, estimates)
+            reward = np.random.normal(arm_mean_values[arm_index], arm_reward_sd)
+            tries[arm_index] += 1
             if step_size == 0:
-                estimates[armIndex] = (estimates[armIndex] + 
-                    1.0 / float(tries[armIndex]) 
-                    * (reward - estimates[armIndex]))
+                estimates[arm_index] = (estimates[arm_index] + 
+                    1.0 / float(tries[arm_index]) 
+                    * (reward - estimates[arm_index]))
             else:
-                estimates[armIndex] = (estimates[armIndex] +
-                    step_size * (reward - estimates[armIndex]))
-            taskResults.append(reward)
-        results.append(taskResults)
-        update_progress(float(taskIndex) / float(tasksNum-1) * 100.0)
+                estimates[arm_index] = (estimates[arm_index] +
+                    step_size * (reward - estimates[arm_index]))
+            task_results.append(reward)
+            if with_random_walks:
+                for arm_index in range(0, arms_num):
+                    step = np.random.choice(
+                        (-random_walk_step, random_walk_step))
+                    arm_mean_values[arm_index] += step
+        results.append(task_results)
+        update_progress(float(task_index) / float(tasks_num-1) * 100.0)
     return results
     
-plot_results(learn(2000, 0.0, 1.0, 10, 1.0, 1000, 0, 
+plot_results(learn(2000, 0.0, 1.0, 10, 1.0, 1000, 0.1, True, 0.1,
                    epsilon_greedy, 0.1), 
                    "Learning with Epsilon-greedy")
